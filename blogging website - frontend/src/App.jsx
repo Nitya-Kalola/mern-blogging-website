@@ -15,3 +15,8 @@ const App = () => {
 };
 
 export default App; 
+
+// Part-3 Nitya Patel Code
+import HomePage from "./pages/home.page";
+<Route index element={<Homepage />}/>
+
