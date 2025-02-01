@@ -9,11 +9,13 @@ import BlogPostCard from "../components/blog-post.component";
 import MinimalBlogPost from "../components/nobanner-blog-post.component";
 import { activeTabRef } from "../components/inpage-navigation.component";
 import NoDataMessage from "../components/nodata.component";
+import { filterPaginationData } from "../common/filter-pagination-data";
+import LoadMoreDataBtn from "../components/load-more.component";
 
 const HomePage = () => {
   let [blogs, setBlog] = useState(null);
   let [trendingBlogs, setTrendingBlog] = useState(null);
-  let [ pageState, setPageState ] = useState("home");
+  let [pageState, setPageState] = useState("home");
 
   let categories = [
     "programming",
@@ -26,27 +28,46 @@ const HomePage = () => {
     "travel",
   ];
 
-  const fetchLatestBlogs = () => {
+  const fetchLatestBlogs = ({ page = 1 }) => {
     axios
-      .get(import.meta.env.VITE_SERVER_DOMAIN + "/latest-blogs")
-      .then(({ data }) => {
-        setBlog(data.blogs);
+      .post(import.meta.env.VITE_SERVER_DOMAIN + "/latest-blogs", { page })
+      .then( async ({ data }) => {
+
+        let formatedData = await filterPaginationData({
+          state: blogs,
+          data: data.blogs,
+          page,
+          countRoute: "/all-latest-blogs-count",
+        });
+
+        setBlog(formatedData);
       })
       .catch((err) => {
         console.log(err);
       });
   };
 
-  const fetchBlogsByCategory = () => { 
-    axios 
-        .post(import.meta.env.VITE_SERVER_DOMAIN + "/search-blogs", { tag: pageState })
-        .then(({ data }) => { 
-            setBlog(data.blogs); 
-        }) 
-        .catch((err) => { 
-            console.log(err); 
-        }); 
-    }
+  const fetchBlogsByCategory = ({ page = 1 }) => {
+    axios
+      .post(import.meta.env.VITE_SERVER_DOMAIN + "/search-blogs", {
+        tag: pageState, page 
+      })
+      .then( async ({ data }) => {
+
+        let formatedData = await filterPaginationData({
+          state: blogs,
+          data: data.blogs,
+          page,
+          countRoute: "/search-blogs-count",
+          data_to_send: { tag: pageState }
+        });
+
+        setBlog(formatedData);
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  };
 
   const fetchTrendingBlogs = () => {
     axios
@@ -64,26 +85,24 @@ const HomePage = () => {
 
     setBlog(null);
 
-    if(pageState == category){
-        setPageState("home");
-        return;
+    if (pageState == category) {
+      setPageState("home");
+      return;
     }
 
     setPageState(category);
-    
-  }
+  };
 
   useEffect(() => {
-
     activeTabRef.current.click();
 
-    if(pageState == "home"){
-        fetchLatestBlogs();
-    }else{
-        fetchBlogsByCategory();
+    if (pageState == "home") {
+      fetchLatestBlogs({ page: 1 });
+    } else {
+      fetchBlogsByCategory({ page: 1 });
     }
-    if(!trendingBlogs){
-        fetchTrendingBlogs();
+    if (!trendingBlogs) {
+      fetchTrendingBlogs();
     }
   }, [pageState]);
 
@@ -93,47 +112,48 @@ const HomePage = () => {
         {/* latest blogs */}
         <div className="w-full">
           <InPageNavigation
-            routes={[ pageState, "trending blogs"]}
+            routes={[pageState, "trending blogs"]}
             defaultHidden={["trending blogs"]}
           >
             <>
               {blogs == null ? (
                 <Loader />
+              ) : blogs.results.length ? (
+                blogs.results.map((blogs, i) => {
+                  return (
+                    <AnimationWrapper
+                      transition={{ duration: 1, delay: i * 0.1 }}
+                      key={i}
+                    >
+                      <BlogPostCard
+                        content={blog}
+                        author={blog.author.personal_info}
+                      />
+                    </AnimationWrapper>
+                  );
+                })
               ) : (
-                blogs.length ?
-                    blogs.map((blogs, i) => {
-                    return (
-                        <AnimationWrapper
-                        transition={{ duration: 1, delay: i * 0.1 }}
-                        key={i}
-                        >
-                        <BlogPostCard
-                            content={blog}
-                            author={blog.author.personal_info}
-                        />
-                        </AnimationWrapper>
-                        );
-                    })
-                    : <NoDataMessage message="No Blogs Published"/>
+                <NoDataMessage message="No Blogs Published" />
               )}
+              <LoadMoreDataBtn state={blogs} fetchDataFun={( pageState == "home" ? fetchLatestBlogs : fetchBlogsByCategory )}/>
             </>
 
             <>
               {trendingBlogs == null ? (
                 <Loader />
-              ) : (
-                trendingBlogs.length ?
+              ) : trendingBlogs.length ? (
                 trendingBlogs.map((blogs, i) => {
-                    return (
-                      <AnimationWrapper
-                        transition={{ duration: 1, delay: i * 0.1 }}
-                        key={i}
-                      >
-                        <MinimalBlogPost />
-                      </AnimationWrapper>
-                    );
-                  })
-                : <NoDataMessage message="No Trending Blogs"/>
+                  return (
+                    <AnimationWrapper
+                      transition={{ duration: 1, delay: i * 0.1 }}
+                      key={i}
+                    >
+                      <MinimalBlogPost />
+                    </AnimationWrapper>
+                  );
+                })
+              ) : (
+                <NoDataMessage message="No Trending Blogs" />
               )}
             </>
           </InPageNavigation>
@@ -147,16 +167,20 @@ const HomePage = () => {
               </h1>
 
               <div className="flex gap-3 flex-wrap">
-                {
-                    categories.map((category, i) => {
-                    return (
-                        <button onClick={loadBlogByCategory} className={"tag" + ( pageState == category ? " bg-black text-white " : " ")} key={i}>
-                        {category}
-                        </button>
-                        );
-                        }
-                    )
-                }
+                {categories.map((category, i) => {
+                  return (
+                    <button
+                      onClick={loadBlogByCategory}
+                      className={
+                        "tag" +
+                        (pageState == category ? " bg-black text-white " : " ")
+                      }
+                      key={i}
+                    >
+                      {category}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -167,19 +191,19 @@ const HomePage = () => {
 
               {trendingBlogs == null ? (
                 <Loader />
+              ) : trendingBlogs.legth ? (
+                trendingBlogs.map((blogs, i) => {
+                  return (
+                    <AnimationWrapper
+                      transition={{ duration: 1, delay: i * 0.1 }}
+                      key={i}
+                    >
+                      <MinimalBlogPost />
+                    </AnimationWrapper>
+                  );
+                })
               ) : (
-                trendingBlogs.legth ?
-                    trendingBlogs.map((blogs, i) => {
-                        return (
-                        <AnimationWrapper
-                            transition={{ duration: 1, delay: i * 0.1 }}
-                            key={i}
-                        >
-                            <MinimalBlogPost />
-                        </AnimationWrapper>
-                        );
-                    })
-                : <NoDataMessage message="No Trending Blogs"/>
+                <NoDataMessage message="No Trending Blogs" />
               )}
             </div>
           </div>

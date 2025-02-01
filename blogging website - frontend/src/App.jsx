@@ -1,13 +1,17 @@
 import { Routes, Route } from "react-router-dom";
 import Navbar from "./components/navbar.component";
 import UserAuthForm from "./pages/userAuthForm.page";
+import HomePage from "./pages/home.page";
+import SearchPage from "./pages/search.page";
 
 const App = () => {
   return (
     <Routes>
       <Route path="/" element={<Navbar />}>
+        <Route index element={<Homepage />} />;
         <Route path="signin" element={<UserAuthForm type="sign-in" />} />
         <Route path="signup" element={<UserAuthForm type="sign-up" />} />
+        <Route path="search/:query" element={<SearchPage/>} />
       </Route>
     </Routes>
   );
@@ -15,6 +19,3 @@ const App = () => {
 
 export default App;
 
-// Part-3 Nitya Patel Code
-import HomePage from "./pages/home.page";
-<Route index element={<Homepage />} />;
